@@ -1,0 +1,11 @@
+FROM jenkins/jenkins:lts-jdk21
+
+USER root
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl ca-certificates musl && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=projectdiscovery/nuclei:latest /usr/local/bin/nuclei /usr/local/bin/nuclei
+
+USER jenkins

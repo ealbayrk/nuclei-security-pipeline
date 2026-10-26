@@ -1,0 +1,16 @@
+# Nuclei scan results
+reports/
+
+# Sensitive files
+.env
+.env.*
+!.env.example
+*.log
+
+# macOS
+.DS_Store
+
+# Temporary files
+*.tmp
+*.swp
+*~
