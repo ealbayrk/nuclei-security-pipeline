@@ -1,31 +1,77 @@
 Nuclei Security Pipeline
 
-DevSecOps | DAST | CI/CD Automation
+A small security automation lab built with Jenkins, Docker, and Nuclei.
 
-A hands-on DevSecOps project focused on automated security scanning using Nuclei, Docker, and Jenkins.
+I built this project to get hands-on experience with running security scans as part of a CI/CD pipeline instead of executing them manually.
 
-Tech Stack
+The target application is OWASP Juice Shop, running in a separate Docker container.
 
-* Nuclei — Security scanning
-* Docker — Containerized test environment
-* Jenkins — CI/CD automation (planned)
-* OWASP Juice Shop — Local security testing application
+How it works
 
-Project Workflow
+Jenkins and Juice Shop run on the same Docker network. Jenkins uses Nuclei to scan the application and stores the results as JSON build artifacts.
 
-Docker → OWASP Juice Shop → Nuclei → JSON Report
+The pipeline has three stages:
 
-Current Progress
+1. Check Target — Make sure Juice Shop is reachable.
+2. Technology Detection — Identify technologies using Nuclei templates.
+3. Misconfiguration Scan — Check for common security misconfigurations.
 
-* Docker environment configured
-* OWASP Juice Shop running locally
-* Nuclei installed and configured
-* Security scan results verified
-* Jenkins pipeline implemented
-* Automated report generation validated
+Scan reports are archived after each build.
 
-About
+Project structure
 
-This project builds on my previous DevSecOps research and explores security testing automation in a controlled local environment.
+.
+├── Dockerfile.jenkins
+├── Jenkinsfile
+├── scripts/
+│   ├── tech-scan.sh
+│   ├── misconfig-scan.sh
+│   └── run-all.sh
+└── README.md
 
-Status: Work in Progress
+Running locally
+
+The scripts assume Juice Shop is available at http://127.0.0.1:3000.
+
+With Docker and Nuclei installed, start Juice Shop:
+
+docker run -d --name juice-shop-lab \
+  -p 127.0.0.1:3000:3000 \
+  bkimminich/juice-shop
+
+Then run:
+
+./scripts/run-all.sh
+
+The target can also be overridden:
+
+TARGET_URL=http://127.0.0.1:3000 ./scripts/run-all.sh
+
+For Jenkins, I used a custom Docker image based on jenkins/jenkins:lts-jdk21 with Nuclei installed.
+
+The Jenkinsfile targets http://juice-shop-lab:3000, so Jenkins needs to be connected to the same Docker network as Juice Shop.
+
+Scan results
+
+During testing, Nuclei identified OWASP Juice Shop and reported several configuration-related findings, including:
+
+* Missing Subresource Integrity (SRI) attributes on external resources
+* Missing Content-Security-Policy header
+* Missing Referrer-Policy header
+* Other missing HTTP security headers
+
+These were informational findings, not confirmed exploitable vulnerabilities.
+
+One technology fingerprint also matched qm-system, which may be a false positive.
+
+Notes
+
+The pipeline completed successfully in Jenkins, including both scanning stages and artifact archiving.
+
+The tested environment used Nuclei v3.3.8. Some templates produced compatibility warnings, so updating Nuclei and validating the templates is still on my list.
+
+The scan rate is limited, and potentially intrusive template categories are excluded.
+
+Generated reports are kept out of Git because they can contain HTTP request and response data.
+
+This is a local lab project. Only run security scans against systems you own or have permission to test.
