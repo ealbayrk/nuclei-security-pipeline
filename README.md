@@ -1,41 +1,46 @@
 <div align="center">
 
-Nuclei Security Pipeline
+# Nuclei Security Pipeline
 
-Jenkins · Docker · Nuclei · OWASP Juice Shop
+**Template-based security scanning in a Jenkins pipeline**
 
-Automated security scans in a containerized Jenkins environment.
+<img alt="Jenkins" src="https://img.shields.io/badge/Jenkins-D24939?style=flat-square&logo=jenkins&logoColor=white" /> <img alt="Docker" src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white" /> <img alt="Nuclei" src="https://img.shields.io/badge/Nuclei-6D4AFF?style=flat-square" /> <img alt="OWASP Juice Shop" src="https://img.shields.io/badge/OWASP-Juice%20Shop-F7B93E?style=flat-square" />
 
 </div>
 
-⸻
+## What this does
 
-01 / About
+I started experimenting with Nuclei and Jenkins while writing about dynamic application security testing. This repository is the working Docker-based version of that experiment: Jenkins reads a `Jenkinsfile` from GitHub, scans a local OWASP Juice Shop instance, and keeps the results with the build.
 
-I wanted to see how Nuclei would fit into a Jenkins pipeline, so I set up a local Docker lab with OWASP Juice Shop as the target.
+**Target:** OWASP Juice Shop (local container)  
+**Output:** JSON reports archived in Jenkins  
+**Status:** GitHub SCM checkout verified; scans tested in Jenkins
 
-Jenkins pulls the pipeline from GitHub, runs the scans and keeps the JSON results with each build.
+## How the scan runs
 
-02 / Pipeline
+```text
+   GitHub (Jenkinsfile)
+           |
+           v
+        Jenkins --------------------+
+           |                       |
+     1. Check target               |
+           |                       v
+     2. Detect technologies   OWASP Juice Shop
+           |                   (Docker container)
+     3. Scan misconfigurations      ^
+           |                       |
+           +---- Nuclei HTTP ------+
+           |
+           v
+     Archived JSON reports
+```
 
-GitHub
-  │
-  ▼
-Jenkins
-  │
-  ├── Check Target
-  │
-  ├── Technology Detection
-  │
-  └── Misconfiguration Scan
-  │
-  ▼
-JSON Build Artifacts
+Jenkins and Juice Shop share a Docker network. The pipeline uses rate limits and excludes potentially intrusive template categories from the misconfiguration scan.
 
-Jenkins and Juice Shop communicate over a shared Docker network.
+## Files
 
-03 / Repository
-
+```text
 nuclei-security-pipeline/
 ├── Dockerfile.jenkins
 ├── Jenkinsfile
@@ -45,55 +50,48 @@ nuclei-security-pipeline/
     ├── tech-scan.sh
     ├── misconfig-scan.sh
     └── run-all.sh
+```
 
-04 / Running the Lab
+## Run it locally
 
-Start Juice Shop
+**1 — Start the target**
 
+```bash
 docker run -d --name juice-shop-lab \
   -p 127.0.0.1:3000:3000 \
   bkimminich/juice-shop
+```
 
-Run the scans
+**2 — Run the scripts** (requires Nuclei installed on your machine)
 
-Nuclei must be installed locally.
-
+```bash
 ./scripts/run-all.sh
+```
 
-To use a different target:
+You can override the target URL:
 
+```bash
 TARGET_URL=http://127.0.0.1:3000 ./scripts/run-all.sh
+```
 
-For Jenkins, I built a custom image based on jenkins/jenkins:lts-jdk21 with Nuclei installed.
+**Jenkins setup:** The custom image in `Dockerfile.jenkins` is based on `jenkins/jenkins:lts-jdk21` and includes Nuclei. Connect Jenkins and Juice Shop to the same Docker network; the `Jenkinsfile` uses `http://juice-shop-lab:3000`. Configure the job as **Pipeline script from SCM**, branch `main`, script path `Jenkinsfile`.
 
-The Jenkins container needs access to Juice Shop at http://juice-shop-lab:3000.
+## Findings from the lab
 
-05 / What Nuclei Found
+The initial scans reported missing Subresource Integrity (SRI) attributes and several missing HTTP security headers, including `Content-Security-Policy` and `Referrer-Policy`.
 
-The first scans returned mostly missing security headers and SRI-related findings.
+These results were **informational**, not proof of an exploitable vulnerability. A `qm-system` technology fingerprint also appeared and may be a false positive.
 
-Finding	Severity
-Missing Subresource Integrity	INFO
-Missing Content-Security-Policy	INFO
-Missing Referrer-Policy	INFO
-Other missing security headers	INFO
+The environment used **Nuclei v3.3.8**. Some templates raised compatibility warnings; updating the scanner and validating templates are still outstanding.
 
-These are informational findings, not confirmed exploitable vulnerabilities.
+## Background reading
 
-Technology detection also returned a qm-system fingerprint that may be a false positive.
+I covered the original Nuclei/DAST experiment, including a manual scan and an earlier Jenkins example, in my Medium post:
 
-06 / Notes
+**[Dynamic Application Security Testing (DAST): NUCLEI](https://medium.com/@ealbayrk0/active-security-scanning-using-semgrep-dependency-check-trufflehog-and-cdxgen-9a822477f1df)** · February 2025
 
-The pipeline has been tested with Nuclei v3.3.8. Some templates generated compatibility warnings.
+The article shows the earlier approach; this repository documents the current containerized setup.
 
-Scan rates are limited, potentially intrusive template categories are excluded, and generated JSON reports are not committed to Git.
+---
 
-I’m planning to add severity-based build checks and improve reporting as I continue working on the project.
-
-⸻
-
-<div align="center">
-
-Built for local security testing. Only scan systems you own or are authorized to test.
-
-</div>
+<sub>Local security lab only. Scan systems you own or have explicit permission to test. Generated JSON reports are excluded from Git because they may contain HTTP request and response data.</sub>
