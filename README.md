@@ -1,27 +1,43 @@
 Nuclei Security Pipeline
 
-A small DevSecOps lab using Jenkins, Docker, and Nuclei to automate security scanning.
+Automated security scanning with Jenkins, Docker and Nuclei.
 
-I built this project to practice integrating security checks into a CI/CD pipeline rather than running scans manually.
+This is a small lab project where I integrated Nuclei into a Jenkins pipeline to scan a containerized instance of OWASP Juice Shop.
 
-The target is OWASP Juice Shop, running in a separate Docker container.
+The goal was to move from running individual scans in the terminal to having a repeatable process with saved results.
 
-Overview
+Pipeline
 
-Jenkins and Juice Shop run on the same Docker network. Jenkins executes Nuclei scans against the application and archives the results as JSON artifacts.
+GitHub
+   |
+   v
+Jenkins
+   |
+   +-- Check Target
+   |
+   +-- Technology Detection
+   |
+   +-- Misconfiguration Scan
+   |
+   v
+JSON Reports (Jenkins Artifacts)
 
-Pipeline Stages
+Jenkins pulls the Jenkinsfile from GitHub, checks whether Juice Shop is reachable, and runs two Nuclei scans.
 
-Stage	Description
-Check Target	Verifies that Juice Shop is reachable.
-Technology Detection	Identifies technologies using Nuclei templates.
-Misconfiguration Scan	Checks for common security misconfigurations.
+The reports are archived as build artifacts.
 
-Scan reports are archived after each build.
+Stack
 
-Project Structure
+Tool	Purpose
+Jenkins	Pipeline execution
+Docker	Containerized lab environment
+Nuclei	Security scanning
+OWASP Juice Shop	Test application
+GitHub	Source control
 
-.
+Repository
+
+nuclei-security-pipeline/
 ├── Dockerfile.jenkins
 ├── Jenkinsfile
 ├── scripts/
@@ -30,70 +46,46 @@ Project Structure
 │   └── run-all.sh
 └── README.md
 
-Running Locally
+Run locally
 
-1. Start OWASP Juice Shop
+Start Juice Shop:
 
 docker run -d --name juice-shop-lab \
   -p 127.0.0.1:3000:3000 \
   bkimminich/juice-shop
 
-2. Run the security scans
-
-With Nuclei installed locally:
+Run the scans (requires Nuclei):
 
 ./scripts/run-all.sh
 
-To specify a different target:
+To override the target:
 
 TARGET_URL=http://127.0.0.1:3000 ./scripts/run-all.sh
 
-Jenkins Setup
+For Jenkins, I used a custom image based on jenkins/jenkins:lts-jdk21 with Nuclei installed.
 
-Jenkins runs in a custom Docker image based on jenkins/jenkins:lts-jdk21, with Nuclei installed.
+Jenkins and Juice Shop share a Docker network, allowing the pipeline to reach the application at http://juice-shop-lab:3000.
 
-The Jenkinsfile uses the following target:
+Findings
 
-http://juice-shop-lab:3000
+The scans detected several missing security headers and SRI attributes.
 
-Jenkins must be connected to the same Docker network as Juice Shop.
+Examples:
 
-The Pipeline configuration uses Pipeline script from SCM to load Jenkinsfile directly from GitHub.
+* Missing Content-Security-Policy
+* Missing Referrer-Policy
+* Missing Subresource Integrity (SRI)
+* Other missing HTTP security headers
 
-Scan Results
+These were informational findings, not verified exploitable vulnerabilities.
 
-During testing, Nuclei identified OWASP Juice Shop and reported several configuration-related findings.
+Technology detection also returned a possible false-positive fingerprint for qm-system.
 
-Finding	Result
-Missing Subresource Integrity (SRI)	Detected
-Missing Content-Security-Policy	Detected
-Missing Referrer-Policy	Detected
-Other missing HTTP security headers	Detected
+Limitations
 
-These were informational findings, not confirmed exploitable vulnerabilities.
+* Tested with Nuclei v3.3.8.
+* Some templates generated compatibility warnings.
+* Scans use rate limits and exclude potentially intrusive template categories.
+* Generated JSON reports are excluded from Git because they can contain HTTP request and response data.
 
-One technology fingerprint also matched qm-system, which may be a false positive.
-
-Current Status
-
-* Docker-based Jenkins and Juice Shop environment
-* Automated Nuclei scans
-* Jenkins Pipeline execution
-* GitHub SCM integration
-* JSON artifact archiving
-* Update Nuclei and validate templates
-* Add severity-based security gates
-* Generate HTML security reports
-* Configure automatic pipeline triggers
-
-Notes
-
-The pipeline has completed successfully in Jenkins.
-
-Testing used Nuclei v3.3.8. Some templates produced compatibility warnings.
-
-Scan rates are limited, and potentially intrusive template categories are excluded.
-
-Generated reports are excluded from Git because they may contain HTTP request and response data.
-
-Disclaimer: This project is intended for local testing and learning. Only scan systems you own or are authorized to test.
+This project runs in a local lab environment. Only scan systems you own or have permission to test.
